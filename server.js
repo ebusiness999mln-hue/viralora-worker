@@ -24,7 +24,8 @@ app.post('/render', async (req, res) => {
     res.json({ videoUrl })
   } catch (err) {
     console.error('render failed:', err)
-    res.status(500).json({ error: 'render failed' })
+    // ponytail: surface the real reason — this is an internal worker, not public.
+    res.status(500).json({ error: 'render failed', reason: String((err && err.message) || err) })
   }
 })
 

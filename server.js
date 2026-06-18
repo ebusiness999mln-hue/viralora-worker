@@ -40,7 +40,7 @@ async function render({ script, style, duration }) {
     await captureFrames(html, duration, dir)
     const mp4 = path.join(dir, 'out.mp4')
     await encode(dir, mp4)
-    return await upload(mp4)
+    return await publish(mp4)
   } finally {
     fs.rmSync(dir, { recursive: true, force: true })
   }
@@ -152,18 +152,27 @@ function run(cmd, args) {
   })
 }
 
-async function upload(mp4) {
+// Prefer Supabase (shareable URL). Fall back to a base64 data: URI so a video
+// always comes back even when storage isn't configured / fails.
+// ponytail: data URI works for short clips but the payload is ~1.33x the file —
+// not for long videos. Real fix: get the Supabase service key set in Railway.
+async function publish(mp4) {
+  const buf = fs.readFileSync(mp4)
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set')
-  const admin = createClient(url, key)
-  await admin.storage.createBucket(BUCKET, { public: true }).catch(() => {})
-  // Deterministic-render env forbids Date.now/random; name by content hash.
-  const buf = fs.readFileSync(mp4)
-  const name = `render-${hash(buf)}.mp4`
-  const { error } = await admin.storage.from(BUCKET).upload(name, buf, { contentType: 'video/mp4', upsert: true })
-  if (error) throw error
-  return admin.storage.from(BUCKET).getPublicUrl(name).data.publicUrl
+  if (url && key) {
+    try {
+      const admin = createClient(url, key)
+      await admin.storage.createBucket(BUCKET, { public: true }).catch(() => {})
+      const name = `render-${hash(buf)}.mp4`
+      const { error } = await admin.storage.from(BUCKET).upload(name, buf, { contentType: 'video/mp4', upsert: true })
+      if (error) throw error
+      return admin.storage.from(BUCKET).getPublicUrl(name).data.publicUrl
+    } catch (e) {
+      console.error('supabase upload failed, returning data URI:', e)
+    }
+  }
+  return `data:video/mp4;base64,${buf.toString('base64')}`
 }
 
 function hash(buf) {

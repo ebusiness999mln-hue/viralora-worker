@@ -184,3 +184,4 @@ if (process.argv.includes('--selftest')) {
 }
 
 app.listen(3000, () => console.log('Worker running on port 3000'))
+// test deploy

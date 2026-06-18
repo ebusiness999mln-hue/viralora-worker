@@ -16,11 +16,16 @@ app.use(express.json({ limit: '2mb' }))
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }))
 
-// ponytail: TEMPORARY stub — returns a fixed sample video to prove the
-// Vercel->worker->videoUrl wiring end to end. The real render() pipeline below
-// is intact; restore it by deleting this early-return once Supabase upload works.
 app.post('/render', async (req, res) => {
-  res.json({ success: true, videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4' })
+  const { script, style, duration } = req.body || {}
+  if (!script || typeof script !== 'string') return res.status(400).json({ error: 'script required' })
+  try {
+    const videoUrl = await render({ script, style: style || {}, duration: clampDuration(duration) })
+    res.json({ videoUrl })
+  } catch (err) {
+    console.error('render failed:', err)
+    res.status(500).json({ error: 'render failed', reason: String((err && err.message) || err) })
+  }
 })
 
 // ── Pipeline ────────────────────────────────────────────────────────────────

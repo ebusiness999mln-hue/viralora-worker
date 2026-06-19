@@ -18,32 +18,36 @@ async function handle(job) {
   throw new Error(`unknown job kind: ${kind}`)
 }
 
+// Claim one job by id (status guard prevents double-processing if the poll loop
+// and a direct /render trigger race — only the first update wins) and run it.
+async function runJob(jobId) {
+  const { data: claimed } = await sb()
+    .from('render_jobs').update({ status: 'processing' })
+    .eq('id', jobId).eq('status', 'pending').select().single()
+  if (!claimed) return false // already claimed / not pending
+  try {
+    const patch = await handle(claimed)
+    await sb().from('render_jobs').update({ status: 'completed', ...patch }).eq('id', jobId)
+    console.log(`✓ job ${jobId} (${claimed.script?.kind})`)
+  } catch (e) {
+    console.error(`✗ job ${jobId}:`, e.message)
+    await sb().from('render_jobs').update({ status: 'failed', error: e.message }).eq('id', jobId)
+  }
+  return true
+}
+
 async function poll() {
   try {
     const { data: rows } = await sb()
-      .from('render_jobs').select('*').eq('status', 'pending').limit(1)
-    const job = rows && rows[0]
-    if (job) {
-      // claim: guard on status so a second worker can't grab the same row
-      const { data: claimed } = await sb()
-        .from('render_jobs').update({ status: 'processing' })
-        .eq('id', job.id).eq('status', 'pending').select().single()
-      if (claimed) {
-        try {
-          const patch = await handle(claimed)
-          await sb().from('render_jobs').update({ status: 'completed', ...patch }).eq('id', job.id)
-          console.log(`✓ job ${job.id} (${claimed.script?.kind})`)
-        } catch (e) {
-          console.error(`✗ job ${job.id}:`, e.message)
-          await sb().from('render_jobs').update({ status: 'failed', error: e.message }).eq('id', job.id)
-        }
-      }
-    }
+      .from('render_jobs').select('id').eq('status', 'pending').limit(1)
+    if (rows && rows[0]) await runJob(rows[0].id)
   } catch (e) {
     console.error('poll error:', e.message) // transient (e.g. network) — keep looping
   }
   setTimeout(poll, 5000)
 }
+
+module.exports = { runJob }
 
 // ── self-check: node worker.js --selftest ──
 if (process.argv.includes('--selftest')) {

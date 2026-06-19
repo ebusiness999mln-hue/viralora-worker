@@ -1,16 +1,14 @@
 {
   "name": "viralora-worker",
   "version": "1.0.0",
+  "description": "Polls render_jobs and processes auto-clips (FFmpeg+Qwen) and hyperframes (capture+ffmpeg) jobs.",
   "scripts": {
-    "start": "node server.js",
-    "selftest": "node server.js --selftest"
+    "start": "node worker.js",
+    "selftest": "node worker.js --selftest"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
-    "bullmq": "^5.0.0",
     "dotenv": "^17.4.2",
-    "express": "^4.18.0",
-    "ioredis": "^5.0.0",
     "puppeteer-core": "^22.0.0"
   }
 }

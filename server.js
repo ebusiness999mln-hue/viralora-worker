@@ -6,6 +6,12 @@ const express = require('express')
 
 const { runJob } = require('./worker') // also starts the poll loop on require
 
+// ponytail: keep the process alive through a stray async error. A single
+// unhandled rejection in a job (yt-dlp/ffmpeg/network) would otherwise kill the
+// container and Railway serves a 502 for every request until redeploy. Log, stay up.
+process.on('unhandledRejection', (e) => console.error('unhandledRejection:', e))
+process.on('uncaughtException', (e) => console.error('uncaughtException:', e))
+
 const app = express()
 app.use(express.json())
 app.get('/health', (_req, res) => res.json({ status: 'ok' }))

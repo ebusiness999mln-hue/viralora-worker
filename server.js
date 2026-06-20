@@ -14,16 +14,29 @@ process.on('uncaughtException', (e) => console.error('uncaughtException:', e))
 
 const app = express()
 app.use(express.json())
-app.get('/health', (_req, res) => res.json({ status: 'ok' }))
 
 // Load the worker AFTER the server is defined and non-fatally. A failure here
 // (missing dep, bad env) must not stop the HTTP server from binding.
 let runJob = null
+let workerLoadError = null
 try {
   runJob = require('./worker').runJob // also starts the poll loop on require
 } catch (e) {
+  workerLoadError = e.message
   console.error('worker module failed to load — /render disabled, server still up:', e)
 }
+
+// Report boot state so a 502/misbehaviour is diagnosable instead of opaque:
+// is the worker module loaded, and are the env vars it needs even present?
+app.get('/health', (_req, res) => res.json({
+  status: 'ok',
+  worker: runJob ? 'loaded' : 'failed',
+  workerLoadError,
+  env: {
+    supabaseUrl: !!process.env.SUPABASE_URL,
+    supabaseKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+  },
+}))
 
 // Direct trigger from Vercel (auto-clips/hyperframes enqueue). Run the job now
 // instead of waiting for the poll. Respond immediately — processing is long.

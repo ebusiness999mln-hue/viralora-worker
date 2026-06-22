@@ -43,11 +43,25 @@ async function runJob(jobId) {
 
 async function poll() {
   try {
-    const { data: rows } = await sb()
-      .from('render_jobs').select('id').eq('status', 'pending').limit(1)
-    if (rows && rows[0]) await runJob(rows[0].id)
+    console.log('polling...')
+    const { data: rows, error } = await sb()
+      .from('render_jobs')
+      .select('id, script')
+      .eq('status', 'pending')
+      .limit(1)
+
+    console.log('poll result:', { rows: rows?.length, error: error?.message })
+
+    if (error) {
+      console.error('poll query error:', error.message)
+    } else if (rows && rows[0]) {
+      console.log('found job:', rows[0].id)
+      await runJob(rows[0].id)
+    } else {
+      console.log('no pending jobs')
+    }
   } catch (e) {
-    console.error('poll error:', e.message) // transient (e.g. network) — keep looping
+    console.error('poll error:', e.message)
   }
   setTimeout(poll, 5000)
 }

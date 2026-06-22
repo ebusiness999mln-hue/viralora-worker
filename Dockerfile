@@ -9,10 +9,11 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Bump YTDLP_BUST to force a fresh yt-dlp on rebuild — the cached layer can pin a
-# weeks-old binary that current YouTube breaks. (YouTube changes constantly.)
-ARG YTDLP_BUST=2026-06-22
-RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
+# Nightly channel — stable lags badly on YouTube's SABR streaming changes
+# (yt-dlp#12482), which is what breaks section downloads. Bump YTDLP_BUST to
+# force a fresh binary on rebuild (the cached layer can pin a broken one).
+ARG YTDLP_BUST=2026-06-22b
+RUN curl -L https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
     && chmod a+rx /usr/local/bin/yt-dlp \
     && yt-dlp --version
 

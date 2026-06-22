@@ -1,11 +1,16 @@
 require('dotenv').config()
 const { createClient } = require('@supabase/supabase-js')
+const ws = require('ws')
 const { renderHyperFrames, buildHtml, normalizeScenes, clampDuration } = require('./lib/hyperframes')
 const { renderAutoClips } = require('./lib/autoclips')
 
 let _sb
 function sb() {
-  if (!_sb) _sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  // Node has no native WebSocket — give realtime the `ws` impl so it stops erroring.
+  if (!_sb) _sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+    global: { fetch },
+    realtime: { transport: ws },
+  })
   return _sb
 }
 

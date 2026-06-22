@@ -52,3 +52,4 @@ app.post('/render', (req, res) => {
 // the default bind can leave the port unreachable and surface as a 502.
 const port = process.env.PORT || 3000
 app.listen(port, '0.0.0.0', () => console.log(`viralora-worker on :${port}`))
+"" 

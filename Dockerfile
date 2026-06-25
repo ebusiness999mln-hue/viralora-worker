@@ -14,6 +14,14 @@ RUN apt-get update && apt-get install -y \
 RUN git clone https://github.com/SamurAIGPT/AI-Youtube-Shorts-Generator /app/shorts-generator
 RUN cd /app/shorts-generator && pip3 install --break-system-packages -r requirements-local.txt
 
+# yt-dlp's Python API has no cookie env hook, so inject one: read the cookie
+# file path from $YTDLP_COOKIES into ydl_opts. Lets the worker pass YouTube
+# auth cookies past datacenter-IP bot gating. Fails the build loudly (grep -q)
+# if the upstream line ever moves, so this never silently no-ops.
+RUN F=/app/shorts-generator/shorts_generator/local/downloader.py \
+    && grep -q '"format": _format_for(fmt),' "$F" \
+    && sed -i 's#"format": _format_for(fmt),#"format": _format_for(fmt),\n        "cookiefile": os.environ.get("YTDLP_COOKIES") or None,#' "$F"
+
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
